@@ -32,8 +32,8 @@ def build_time_task(
     Returns:
         the newly created task
     """
-    start_time = "2023-10-31T10:30:00+00:00"
-    end_time = "2023-10-31T11:00:00+00:00"
+    start_time = "2024-01-19T19:00:00+00:00"
+    end_time = "2024-01-19T19:30:00+00:00"
     command = ["stellar-etl"]
     args = [
         "get_ledger_range_from_times",
@@ -49,15 +49,12 @@ def build_time_task(
         args.append("--testnet")
     elif use_futurenet:
         args.append("--futurenet")
-    namespace = conf.get("kubernetes", "NAMESPACE")
-    if namespace == "default":
-        config_file_location = Variable.get("kube_config_location")
-        in_cluster = False
-    else:
-        config_file_location = None
-        in_cluster = True
+    config_file_location = Variable.get("kube_config_location")
+    in_cluster = False if config_file_location else True
     resources_requests = (
-        f"{{{{ var.json.resources.{resource_cfg}.requests | container_resources }}}}"
+        Variable.get("resources", deserialize_json=True)
+        .get(resource_cfg)
+        .get("requests")
     )
     affinity = Variable.get("affinity", deserialize_json=True).get(resource_cfg)
 

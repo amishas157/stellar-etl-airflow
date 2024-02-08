@@ -1,8 +1,10 @@
 from datetime import datetime
 
 from airflow import DAG
+from airflow.models import Variable
 from stellar_etl_airflow import macros
-from stellar_etl_airflow.build_export_task import build_export_task
+from stellar_etl_airflow.build_batch_stats import build_batch_stats
+from stellar_etl_airflow.build_export_test_task import build_export_task
 from stellar_etl_airflow.build_gcs_to_bq_task import build_gcs_to_bq_task
 from stellar_etl_airflow.build_time_test_task import build_time_task
 from stellar_etl_airflow.default import get_default_dag_args
@@ -25,16 +27,19 @@ dag = DAG(
 
 internal_project = "test-hubble-319619"
 internal_dataset = "hist_txs_xdr_lucas_santos"
-use_testnet = False
+use_testnet = True
 use_futurenet = False
+table_names = Variable.get("table_ids", deserialize_json=True)
 
-time_task = build_time_task(dag, use_testnet=True, use_futurenet=use_futurenet)
+time_task = build_time_task(dag, use_testnet=use_testnet, use_futurenet=use_futurenet)
+
+write_tx_stats = build_batch_stats(dag, table_names["transactions"])
 
 tx_export_task = build_export_task(
     dag,
     "archive",
     "export_transactions",
-    "transactions.txt",
+    "{{ var.json.output_file_names.transactions }}",
     use_testnet=use_testnet,
     use_futurenet=use_futurenet,
     use_gcs=True,

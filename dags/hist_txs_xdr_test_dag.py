@@ -1,23 +1,24 @@
+from ast import literal_eval
 from datetime import datetime
 
 from airflow import DAG
+from airflow.models.variable import Variable
 from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryCreateExternalTableOperator,
-    BigQueryInsertJobOperator,
 )
+from airflow.providers.google.cloud.transfers.gcs_to_gcs import GCSToGCSOperator
 from stellar_etl_airflow import macros
-from stellar_etl_airflow.build_bq_insert_job_task import (
-    file_to_string,
-    get_query_filepath,
-)
-from stellar_etl_airflow.build_dbt_test_task import build_dbt_task
+from stellar_etl_airflow.build_batch_stats import build_batch_stats
+from stellar_etl_airflow.build_dbt_test_task import build_dbt_task, dbt_task
+from stellar_etl_airflow.build_export_test_task import build_export_task
+from stellar_etl_airflow.build_time_test_task import build_time_task
 from stellar_etl_airflow.default import get_default_dag_args
 
 with DAG(
     "hist_txs_xdr_performance_test_dag",
     default_args=get_default_dag_args(),
     max_active_runs=1,
-    start_date=datetime(2023, 10, 31, 11, 0, 0),
+    start_date=datetime(2024, 1, 26, 0, 0, 0),
     catchup=False,
     schedule_interval="@hourly",
     params={
@@ -29,10 +30,40 @@ with DAG(
     },
 ) as dag:
     table = "hist_txs_xdr"
-    internal_project = "test-hubble-319619"
-    internal_dataset = "hist_txs_xdr_lucas_santos"
-    use_testnet = False
-    use_futurenet = False
+    internal_project = "{{ var.value.bq_project }}"
+    internal_dataset = "{{ var.value.bq_dataset }}"
+    use_testnet = literal_eval(Variable.get("use_testnet"))
+    use_futurenet = literal_eval(Variable.get("use_futurenet"))
+    bucket_name = Variable.get("gcs_exported_data_bucket_name")
+    time_task = build_time_task(
+        dag, use_testnet=use_testnet, use_futurenet=use_futurenet
+    )
+
+    write_tx_stats = build_batch_stats(dag, "export_ledger_transaction")
+
+    tx_export_task = build_export_task(
+        dag,
+        "archive",
+        "export_ledger_transaction",
+        "ledger_transactions.txt",
+        use_testnet=use_testnet,
+        use_futurenet=use_futurenet,
+        use_gcs=True,
+        resource_cfg="cc",
+    )
+
+    copy_single_file = GCSToGCSOperator(
+        task_id="send_to_lake",
+        source_bucket=bucket_name,
+        source_object=[
+            "{{ task_instance.xcom_pull(task_ids='"
+            + tx_export_task.task_id
+            + '\')["output"] }}'
+        ],
+        destination_bucket="ledger_transaction_data_lake",
+        destination_object="prod/ledger_transactions.txt",  # If not supplied the source_object value will be used
+        exact_match=True,
+    )
 
     create_external_table = BigQueryCreateExternalTableOperator(
         task_id="create_external_table",
@@ -57,49 +88,34 @@ with DAG(
                         "name": "batch_insert_ts",
                         "type": "TIMESTAMP",
                     },
-                    {"mode": "NULLABLE", "name": "sponsor", "type": "STRING"},
                     {"mode": "NULLABLE", "name": "closed_at", "type": "TIMESTAMP"},
                 ]
             },
             "externalDataConfiguration": {
                 "sourceFormat": "NEWLINE_DELIMITED_JSON",
-                "sourceUris": ["gs://ledger_transaction_data_lake/prod/*.txt"],
+                "sourceUris": [
+                    "gs://us-central1-hubble-2-d948d67b-bucket/dag-exported/scheduled__2024-01-26T13:00:00+00:00/49991480-49991782-ledger_transactions.txt"
+                ],
                 "compression": "NONE",
                 "jsonOptions": {"encoding": "UTF-8"},
             },
         },
     )
 
-    # replace by dbt model
-    query_path = get_query_filepath("hist_txs_lucas_santos")
-    query = file_to_string(query_path)
-    configuration = {
-        "query": {
-            "query": query,
-            "destinationTable": {
-                "projectId": internal_project,
-                "datasetId": internal_dataset,
-                "tableId": table,
-            },
-            "useLegacySql": False,
-        }
-    }
-    configuration["query"]["writeDisposition"] = "WRITE_TRUNCATE"
-
-    create_hist_txs = BigQueryInsertJobOperator(
-        task_id=f"create_table",
-        configuration=configuration,
+    dbt_stg_hist_txs = dbt_task(
+        dag, "stg_history_ledger_transaction", command_type="run"
     )
 
-    create_external_table >> create_hist_txs
-    # replace by dbt model
+    dbt_hist_txs = dbt_task(dag, "hist_txs", command_type="run")
 
-    dbt_hist_txs = build_dbt_task(
-        dag,
-        "hist_txs_xdr",
-        command_type="run",
-        resource_cfg="cc",
-        project="test",
+    (
+        time_task
+        >> write_tx_stats
+        >> tx_export_task
+        >> copy_single_file
+        >> create_external_table
+        >> dbt_stg_hist_txs
+        >> dbt_hist_txs
     )
 
     # scanned bytes bq job

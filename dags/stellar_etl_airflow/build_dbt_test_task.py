@@ -62,7 +62,7 @@ def dbt_task(
     model_name=None,
     tag=None,
     flag="select",
-    operator="",
+    operator="+",
     command_type="build",
     resource_cfg="default",
 ):
@@ -82,7 +82,7 @@ def dbt_task(
     )
     affinity = Variable.get("affinity", deserialize_json=True).get(resource_cfg)
 
-    dbt_image = "{{ var.value.dbt_image_name }}"
+    dbt_image = "us-central1-docker.pkg.dev/hubble-261722/stellar-dbt/stellar-dbt:test"
 
     args = [command_type, f"--{flag}"]
 
@@ -118,7 +118,7 @@ def dbt_task(
             "DBT_THREADS": "{{ var.value.dbt_threads }}",
             "DBT_JOB_RETRIES": "{{ var.value.dbt_job_retries }}",
             "DBT_PROJECT": "{{ var.value.dbt_project }}",
-            "INTERNAL_SOURCE_DB": "{{ var.value.internal_source_db }}",
+            "INTERNAL_SOURCE_DB": "{{ var.value.crypto_stellar }}",
             "INTERNAL_SOURCE_SCHEMA": "{{ var.value.internal_source_schema }}",
             "PUBLIC_SOURCE_DB": "{{ var.value.public_source_db }}",
             "PUBLIC_SOURCE_SCHEMA": "{{ var.value.public_source_schema }}",
@@ -187,12 +187,10 @@ def build_dbt_task(
     else:
         config_file_location = None
         in_cluster = True
-    resources_requests = (
-        f"{{{{ var.json.resources.{resource_cfg}.requests | container_resources }}}}"
-    )
+    resources_requests = {"cpu": "0.3", "memory": "900Mi", "ephemeral-storage": "10Mi"}
     affinity = Variable.get("affinity", deserialize_json=True).get(resource_cfg)
 
-    dbt_image = "{{ var.value.dbt_image_name }}"
+    dbt_image = "us-central1-docker.pkg.dev/hubble-261722/stellar-dbt/stellar-dbt:test"
 
     return KubernetesPodOperator(
         task_id=f"{project}_{model_name}",

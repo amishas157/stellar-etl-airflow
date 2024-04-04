@@ -177,7 +177,7 @@
       "type": "MONTH"
     }
   },
-  "public_dataset": "crypto_stellar",
+  "public_dataset": "composer_test_crypto_stellar",
   "public_project": "crypto-stellar",
   "bq_dataset_audit_log": "composer_test_audit_log",
   "resources": {

@@ -11,6 +11,7 @@ from airflow.models import Variable
 from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import (
     KubernetesPodOperator,
 )
+from kubernetes.client import models as k8s
 from stellar_etl_airflow import macros
 from stellar_etl_airflow.default import alert_after_max_retries
 
@@ -192,6 +193,35 @@ def build_export_task(
     resources_requests = (
         f"{{{{ var.json.resources.{resource_cfg}.requests | container_resources }}}}"
     )
+    ephemeral_volume_capacity = Variable.get("k8s_volumes", deserialize_json=True).get(
+        resource_cfg
+    )
+    k8s_volume_mount = Variable.get("k8s_volume_mounts", deserialize_json=True).get(
+        resource_cfg
+    )
+    if ephemeral_volume_capacity:
+        k8s_volumes_spec = [
+            k8s.V1Volume(
+                name="ephemeral-volume",
+                ephemeral=k8s.V1EphemeralVolumeSource(
+                    volume_claim_template=k8s.V1PersistentVolumeClaimTemplate(
+                        metadata=k8s.V1ObjectMeta(labels={"type": "ephemeral"}),
+                        spec=k8s.V1PersistentVolumeClaimSpec(
+                            access_modes=["ReadWriteOnce"],
+                            resources=k8s.V1VolumeResourceRequirements(
+                                requests={**ephemeral_volume_capacity}
+                            ),
+                        ),
+                    )
+                ),
+            )
+        ]
+    else:
+        k8s_volumes_spec = []
+    if k8s_volume_mount:
+        k8s_volume_mounts_spec = [k8s.V1VolumeMount(**k8s_volume_mount)]
+    else:
+        k8s_volume_mounts_spec = []
     affinity = Variable.get("affinity", deserialize_json=True).get(resource_cfg)
     if command == "export_ledger_entry_changes" or command == "export_all_history":
         arguments = f"""{etl_cmd_string} && echo "{{\\"output\\": \\"{output_file}\\"}}" >> /airflow/xcom/return.json"""
@@ -221,6 +251,8 @@ def build_export_task(
         in_cluster=in_cluster,
         config_file=config_file_location,
         affinity=affinity,
+        volumes=k8s_volumes_spec,
+        volume_mounts=k8s_volume_mounts_spec,
         on_failure_callback=alert_after_max_retries,
         image_pull_policy=Variable.get("image_pull_policy"),
     )

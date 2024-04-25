@@ -13,6 +13,7 @@ from stellar_etl_airflow.default import alert_after_max_retries
 def create_dbt_profile(project="prod"):
     dbt_target = "{{ var.value.dbt_target }}"
     dbt_dataset = "{{ var.value.dbt_dataset }}"
+    dbt_elementary_dataset = "{{ var.value.dbt_elementary_dataset }}"
     dbt_maximum_bytes_billed = "{{ var.value.dbt_maximum_bytes_billed }}"
     dbt_job_execution_timeout_seconds = (
         "{{ var.value.dbt_job_execution_timeout_seconds }}"
@@ -41,7 +42,7 @@ stellar_dbt:
 elementary:
   outputs:
     default:
-      dataset: elementary
+      dataset: {dbt_elementary_dataset}
       maximum_bytes_billed: {dbt_maximum_bytes_billed}
       job_execution_timeout_seconds: {dbt_job_execution_timeout_seconds}
       job_retries: {dbt_job_retries}

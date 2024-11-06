@@ -16,11 +16,26 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PAT_TEST }}
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: 3.12
+
+      - name: Set up Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Prevent recursive push
+        run: |
+          # Check if the commit message contains "CI update" or if the committer is the GitHub Action user
+          if [[ "$(git log -1 --pretty=%an)" == "GitHub Action" ]]; then
+            echo "Skipping workflow run to prevent recursion."
+            exit 0  # Exit early to prevent recursion
+          fi
 
       - name: Run Bash Script
         run: |
@@ -41,8 +56,6 @@ jobs:
 
       - name: Commit and Push Changes
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
           git add changelog/source_data.md
           if git commit -m "Update changelog for Source data"; then
             echo "Changes committed."

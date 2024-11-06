@@ -16,29 +16,50 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PAT_TEST }}
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: 3.12
 
+      - name: Set up Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Prevent recursive push
+        id: run_workflow
+        run: |
+          # Check if the commit message contains "CI update" or if the committer is the GitHub Action user
+          if [[ "$(git log -1 --pretty=%an)" == "GitHub Action" ]]; then
+            echo "Skipping workflow run to prevent recursion."
+            echo "update_source_data_changelog=false" >> $GITHUB_OUTPUT
+            exit 0  # Exit early to prevent recursion
+          fi
+
       - name: Run Bash Script
+        if: steps.run_workflow.outputs.update_source_data_changelog != 'false'
         run: |
           set -x
           cd $GITHUB_WORKSPACE
           OLD_SCHEMAS_DIR=original_schemas
+          OLD_CHANGELOG_FILEPATH=original_changelog.md
           git clone --branch master https://github.com/stellar/stellar-etl-airflow.git repo_master_copy
           mkdir OLD_SCHEMAS_DIR
           cp -r repo_master_copy/schemas/ $OLD_SCHEMAS_DIR/
+          cp repo_master_copy/changelog/source_data.md $OLD_CHANGELOG_FILEPATH
           export OLD_SCHEMAS_DIR
+          export OLD_CHANGELOG_FILEPATH
           python3 scripts/update_source_data_schema_changelog.py
           rm -rf $OLD_SCHEMAS_DIR
+          rm $OLD_CHANGELOG_FILEPATH
           rm -rf repo_master_copy
 
       - name: Commit and Push Changes
+        if: steps.run_workflow.outputs.update_source_data_changelog != 'false'
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
           git add changelog/source_data.md
           if git commit -m "Update changelog for Source data"; then
             echo "Changes committed."

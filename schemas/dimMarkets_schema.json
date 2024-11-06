@@ -16,11 +16,6 @@
   },
   {
     "mode": "NULLABLE",
-    "name": "base_code",
-    "type": "STRING"
-  },
-  {
-    "mode": "NULLABLE",
     "name": "market_id",
     "type": "FLOAT"
   }

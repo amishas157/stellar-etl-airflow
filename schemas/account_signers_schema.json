@@ -6,11 +6,6 @@
   },
   {
     "mode": "NULLABLE",
-    "name": "signer",
-    "type": "STRING"
-  },
-  {
-    "mode": "NULLABLE",
     "name": "weight",
     "type": "FLOAT"
   },

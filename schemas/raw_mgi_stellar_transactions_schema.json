@@ -21,11 +21,6 @@
   },
   {
     "mode": "NULLABLE",
-    "name": "send_cntry_name",
-    "type": "STRING"
-  },
-  {
-    "mode": "NULLABLE",
     "name": "rec_cntry_name",
     "type": "STRING"
   },

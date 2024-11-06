@@ -34,7 +34,7 @@ jobs:
           # Check if the commit message contains "CI update" or if the committer is the GitHub Action user
           if [[ "$(git log -1 --pretty=%an)" == "GitHub Action" ]]; then
             echo "Skipping workflow run to prevent recursion."
-            exit 0  # Exit early to prevent recursion
+            exit 1  # Exit early to prevent recursion
           fi
 
       - name: Run Bash Script

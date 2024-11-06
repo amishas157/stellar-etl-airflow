@@ -5,5 +5,6 @@
 |       Table Name                | Operation     | Columns                                            |
 |---------------------------------|---------------|----------------------------------------------------|
 | - account_signers               | column_removed | signer                                           |
+| - contract_data                 | column_removed | contract_durability                              |
 
 

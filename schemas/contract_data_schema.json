@@ -31,11 +31,6 @@
   },
   {
     "mode": "NULLABLE",
-    "name": "balance",
-    "type": "STRING"
-  },
-  {
-    "mode": "NULLABLE",
     "name": "last_modified_ledger",
     "type": "INTEGER"
   },

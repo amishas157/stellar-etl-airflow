@@ -30,14 +30,17 @@ jobs:
           git config --local user.name "GitHub Action"
 
       - name: Prevent recursive push
+        id: run_workflow
         run: |
           # Check if the commit message contains "CI update" or if the committer is the GitHub Action user
           if [[ "$(git log -1 --pretty=%an)" == "GitHub Action" ]]; then
             echo "Skipping workflow run to prevent recursion."
-            exit 1  # Exit early to prevent recursion
+            echo "update_source_data_changelog=false" >> $GITHUB_OUTPUT
+            exit 0  # Exit early to prevent recursion
           fi
 
       - name: Run Bash Script
+        if: steps.run_workflow.outputs.update_source_data_changelog != 'false'
         run: |
           set -x
           cd $GITHUB_WORKSPACE
@@ -55,6 +58,7 @@ jobs:
           rm -rf repo_master_copy
 
       - name: Commit and Push Changes
+        if: steps.run_workflow.outputs.update_source_data_changelog != 'false'
         run: |
           git add changelog/source_data.md
           if git commit -m "Update changelog for Source data"; then

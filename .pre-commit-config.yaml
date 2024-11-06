@@ -64,6 +64,6 @@ repos:
       - id: sqlfluff-fix
 
 exclude: |
-    (?x)(
-        ^changelog/
-    )
+  (?x)(
+      ^changelog/
+  )

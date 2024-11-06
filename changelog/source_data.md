@@ -6,5 +6,6 @@
 |---------------------------------|---------------|----------------------------------------------------|
 | - account_signers               | column_removed | signer                                           |
 | - contract_data                 | column_removed | contract_durability                              |
+| - dimMarkets                    | column_removed | base_code                                        |
 
 

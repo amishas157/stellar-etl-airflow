@@ -62,3 +62,6 @@ repos:
     hooks:
       - id: sqlfluff-lint
       - id: sqlfluff-fix
+
+exclude: |
+  ^changelog/
